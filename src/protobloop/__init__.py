@@ -15,14 +15,23 @@ ColumnRef = Union[Column, str]
 def shared_base(hk_name="hk", rk_name="rk", base: ModelCls=BaseModel) -> ModelCls:
     class Meta(IMeta):
         abstract = False
-    return type(
+
+    def init_subclass(cls: type, **kwargs):
+        """called after a subclass of the SharedBase is created"""
+        # always overwrite table_name since we're intentionally using the same table
+        super(cls).__init_subclass__(**kwargs)
+        cls.Meta.table_name = shared.Meta.table_name
+
+    shared = type(
         "SharedBase", (base,),
         {
             "Meta": Meta,
             hk_name: Column(String, hash_key=True, dynamo_name=hk_name),
-            rk_name: Column(String, range_key=True, dynamo_name=rk_name)
+            rk_name: Column(String, range_key=True, dynamo_name=rk_name),
+            "__init_subclass__": init_subclass
         }
     )
+    return shared
 
 
 def mapper(model: ModelCls) -> "Mapper":
