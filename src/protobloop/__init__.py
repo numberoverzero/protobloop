@@ -2,7 +2,7 @@ import copy
 from typing import Any, Union
 from typing import Type as PyType
 from bloop import BaseModel, Column
-from bloop.models import IMeta, subclassof, instanceof
+from bloop.models import IMeta, subclassof, instanceof, bind_column
 from bloop.types import String, Type
 
 __all__ = ["mapper", "shared_base"]
@@ -13,25 +13,16 @@ ColumnRef = Union[Column, str]
 
 
 def shared_base(hk_name="hk", rk_name="rk", base: ModelCls=BaseModel) -> ModelCls:
-    class Meta(IMeta):
-        abstract = False
-
-    def init_subclass(cls: type, **kwargs):
-        """called after a subclass of the SharedBase is created"""
-        # always overwrite table_name since we're intentionally using the same table
-        super(cls).__init_subclass__(**kwargs)
-        cls.Meta.table_name = shared.Meta.table_name
-
-    shared = type(
-        "SharedBase", (base,),
-        {
-            "Meta": Meta,
-            hk_name: Column(String, hash_key=True, dynamo_name=hk_name),
-            rk_name: Column(String, range_key=True, dynamo_name=rk_name),
-            "__init_subclass__": init_subclass
-        }
-    )
-    return shared
+    class SharedBase(base):
+        class Meta(IMeta):
+            abstract = True
+        def __init_subclass__(cls: type, **kwargs):
+            super().__init_subclass__(**kwargs)
+            cls.Meta.table_name = SharedBase.Meta.table_name
+    bind_column(SharedBase, hk_name, Column(String, hash_key=True, dynamo_name=hk_name), force=True)
+    bind_column(SharedBase, rk_name, Column(String, range_key=True, dynamo_name=rk_name), force=True)
+    SharedBase.Meta.abstract = False
+    return SharedBase
 
 
 def mapper(model: ModelCls) -> "Mapper":
@@ -71,14 +62,14 @@ class StaticType(String):
         self.python_type = self._wrapped.python_type
 
     def dynamo_dump(self, value, *, context, **kwargs):
-        if value != self._value:
-            raise ValueError(f"tried to dump unexpected value '{value}'' instead of static '{self._value}'")
+        if (value != self._value) and (value is not None):
+            raise ValueError(f"tried to dump unexpected value '{value}' instead of static '{self._value}'")
         return self._wrapped.dynamo_dump(value, context=context, **kwargs)
     
     def dynamo_load(self, value, *, context, **kwargs):
         value = self._wrapped.dynamo_load(value, context=context, **kwargs)
         if value != self._value:
-            raise ValueError(f"tried to load unexpected value '{value}'' instead of static '{self._value}'")
+            raise ValueError(f"tried to load unexpected value '{value}' instead of static '{self._value}'")
         return value
 
 class PrefixType(String):
