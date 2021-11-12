@@ -34,18 +34,18 @@ class Mapper:
 
     def __init__(self, model: ModelCls) -> None:
         self.model = model
-    
+
     def prefix(self, typedef: TypeDef, column: ColumnRef, prefix: str) -> Column:
         column = _clone_column(self.model, column)
         column.typedef = PrefixType(typedef, prefix)
         return column
-    
+
     def static(self, typedef: TypeDef, column: ColumnRef, value: Any) -> Column:
         column = _clone_column(self.model, column)
         column.typedef = StaticType(typedef, value)
         column.default = lambda: value
         return column
-    
+
     def override(self, typedef: TypeDef, column: ColumnRef) -> Column:
         column = _clone_column(self.model, column)
         column.typedef = _type_instance(typedef)
@@ -65,7 +65,7 @@ class StaticType(String):
         if (value != self._value) and (value is not None):
             raise ValueError(f"tried to dump unexpected value '{value}' instead of static '{self._value}'")
         return self._wrapped.dynamo_dump(value, context=context, **kwargs)
-    
+
     def dynamo_load(self, value, *, context, **kwargs):
         value = self._wrapped.dynamo_load(value, context=context, **kwargs)
         if value != self._value:
@@ -80,13 +80,13 @@ class PrefixType(String):
         self._prefix = prefix
         self._wrapped = _type_instance(wrapped)
         self.python_type = self._wrapped.python_type
-    
+
     def dynamo_dump(self, value, *, context, **kwargs):
         value = self._wrapped.dynamo_dump(value, context=context, **kwargs)
         if value is not None:
             value = f"{self._prefix}{value}"
         return value
-    
+
     def dynamo_load(self, value, *, context, **kwargs):
         try:
             if value is not None:

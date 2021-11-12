@@ -7,5 +7,5 @@ if __name__ == "__main__":
         url="https://github.com/numberoverzero/protobloop",
         package_dir={"": "src"},
         packages = setuptools.find_packages(where="src"),
-        install_requires=["bloop~=3.0"],
+        install_requires=["bloop"],
     )
